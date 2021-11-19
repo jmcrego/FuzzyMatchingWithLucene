@@ -33,6 +33,7 @@ public class LuceneQuery {
         String dir = "";
         String file = "";
 	int n_best = 1;
+	boolean txt = false;
         int i = 0;
         while (i<args.length) {
             if (args[i].equals("-i") && i<args.length-1) {
@@ -50,6 +51,10 @@ public class LuceneQuery {
                 n_best = Integer.parseInt(args[i]);
                 i++;
             }
+            else if (args[i].equals("-txt")) {
+                i++;
+		txt = true;
+	    }
             else {
                 Exit("Bad option: "+args[0]+" Use -i OR -f");
             }
@@ -60,15 +65,16 @@ public class LuceneQuery {
             Exit("missing -f option");
 
 	Searcher idx = new Searcher(dir);
-	idx.searchFile(n_best,file);
+	idx.searchFile(n_best,txt,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
-        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT]");
+        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt]");
         System.err.println("  -i  DIR : Read index in DIR");
         System.err.println("  -f FILE : Find similar sentences indexed in DIR for sentences in FILE");
         System.err.println("  -n  INT : Returns up to INT-best similar sentences (default 1)");
+        System.err.println("  -txt    : Output matched sentences (default false)");
         System.exit(1);
     }
 }
@@ -89,7 +95,7 @@ public class Searcher {
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, String indexDataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST, boolean txt, String indexDataPath) throws IOException, ParseException {
 	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(indexDataPath);
@@ -101,11 +107,15 @@ public class Searcher {
 	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
 	    searcher.search(query, collector);
 	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
-	    System.out.print("q="+(++nline)+"\t"+line);
+	    System.out.print("q="+(++nline));
+	    if (txt)
+		System.out.print("\t"+line);
 	    for (int i = 0; i < hits.length; ++i) {
 		int docId = hits[i].doc;
 		Document d = searcher.doc(docId);
-		System.out.print("\ti=" + (docId+1) + "\t" + d.get("source")  + "\t" + d.get("target"));
+		System.out.print("\ti=" + (docId+1) + ",s=" + hits[i].score);
+		if (txt)
+		    System.out.print("\t" + d.get("source")  + "\t" + d.get("target"));
 	    }
 	    System.out.print("\n");
 	}
