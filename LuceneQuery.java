@@ -5,19 +5,10 @@ import java.io.BufferedReader;
 import java.nio.file.Files;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
-import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
@@ -91,7 +82,7 @@ public class Searcher {
     
     public Searcher(String indexDirectoryPath) throws IOException {
 	System.err.println("LuceneQuery: Reading index "+indexDirectoryPath);
-	QueryParser queryParser = new QueryParser("source", new WhitespaceAnalyzer());
+	QueryParser queryParser = new QueryParser("source", new StandardAnalyzer());
 	File d=new File(indexDirectoryPath);
         Directory indexDirectory = FSDirectory.open(d.toPath());
 	IndexReader reader = DirectoryReader.open(indexDirectory);
