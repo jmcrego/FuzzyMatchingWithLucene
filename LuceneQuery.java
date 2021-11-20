@@ -145,7 +145,8 @@ public class Searcher {
 		}
 		if (txt || i>0)
 		    System.out.print("\t");
-		System.out.print((docId+1) + "," + hits[i].score);
+		String position = d.get("position");
+		System.out.print(position + ":" + String.format("%.6f", hits[i].score));
 		if (txt) {
 		    System.out.print("\t" + d.get("source")  + "\t" + d.get("target"));
 		}
