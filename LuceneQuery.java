@@ -35,6 +35,7 @@ public class LuceneQuery {
         String dir = "";
         String file = "";
 	int n_best = 1;
+	float mins = 0.0f;
 	boolean fuzzymatch = false;
 	boolean txt = false;
         int i = 0;
@@ -52,6 +53,11 @@ public class LuceneQuery {
             else if (args[i].equals("-n") && i<args.length-1) {
                 i++;
                 n_best = Integer.parseInt(args[i]);
+                i++;
+            }
+            else if (args[i].equals("-mins") && i<args.length-1) {
+                i++;
+                mins = Float.parseFloat(args[i]);
                 i++;
             }
             else if (args[i].equals("-fuzzymatch")) {
@@ -72,17 +78,18 @@ public class LuceneQuery {
             Exit("missing -f option");
 
 	Searcher idx = new Searcher(dir);
-	idx.searchFile(n_best,fuzzymatch,txt,file);
+	idx.searchFile(n_best,fuzzymatch,mins,txt,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
         System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt] [-fuzzymatch]");
         System.err.println("  -i      DIR : Read index in DIR");
-        System.err.println("  -f     FILE : Find similar sentences indexed in DIR for sentences in FILE");
+        System.err.println("  -f     FILE : Find sentences indexed in DIR similar to sentences in FILE");
         System.err.println("  -n      INT : Returns up to INT-best similar sentences (default 1)");
         System.err.println("  -txt        : Output string of matched sentences (default false)");
         System.err.println("  -fuzzymatch : Sort using fuzzy match similarity score (default false)");
+        System.err.println("  -mins FLOAT : Min score to consider a match (default 0.0)");
         System.exit(1);
     }
 }
@@ -103,7 +110,7 @@ public class Searcher {
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, boolean fuzzymatch, boolean txt, String indexDataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean txt, String indexDataPath) throws IOException, ParseException {
 	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(indexDataPath);
@@ -122,6 +129,8 @@ public class Searcher {
 	    if (fuzzymatch) 
 		hits = rescoreByFM(hits,line);
 	    for (int i = 0; i < hits.length; ++i) {
+		if (hits[i].score < mins)
+		    break;
 		int docId = hits[i].doc;
 		System.out.print("\ti=" + (docId+1) + ",s=" + hits[i].score);
 		if (txt) {
