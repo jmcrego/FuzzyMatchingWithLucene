@@ -38,6 +38,7 @@ public class LuceneQuery {
 	float mins = 0.0f;
 	boolean fuzzymatch = false;
 	boolean txt = false;
+	boolean noperfect = false;
         int i = 0;
         while (i<args.length) {
             if (args[i].equals("-i") && i<args.length-1) {
@@ -68,6 +69,10 @@ public class LuceneQuery {
                 i++;
 		txt = true;
 	    }
+            else if (args[i].equals("-noperfect")) {
+                i++;
+		noperfect = true;
+	    }
             else {
                 Exit("Bad option: "+args[0]+" Use -i OR -f");
             }
@@ -78,17 +83,18 @@ public class LuceneQuery {
             Exit("missing -f option");
 
 	Searcher idx = new Searcher(dir);
-	idx.searchFile(n_best,fuzzymatch,mins,txt,file);
+	idx.searchFile(n_best,fuzzymatch,mins,noperfect,txt,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
-        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt] [-fuzzymatch]");
+        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
         System.err.println("  -i      DIR : Read index in DIR");
         System.err.println("  -f     FILE : Find sentences indexed in DIR similar to sentences in FILE");
         System.err.println("  -n      INT : Returns up to INT-best similar sentences (default 1)");
         System.err.println("  -txt        : Output string of matched sentences (default false)");
         System.err.println("  -fuzzymatch : Sort using fuzzy match similarity score (default false)");
+        System.err.println("  -noperfect  : Do not consider perfect matches (default false)");
         System.err.println("  -mins FLOAT : Min score to consider a match (default 0.0)");
         System.exit(1);
     }
@@ -110,7 +116,7 @@ public class Searcher {
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean txt, String indexDataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean txt, String indexDataPath) throws IOException, ParseException {
 	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(indexDataPath);
@@ -122,9 +128,10 @@ public class Searcher {
 	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
 	    searcher.search(query, collector);
 	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
-	    System.out.print("q="+(++nline));
+	    //System.out.print("q="+(++nline));
+	    nline++;
 	    if (txt)
-		System.out.print("\t"+line);
+		System.out.print(line);
 	    //rescore by fuzzymatch score if needed
 	    if (fuzzymatch) 
 		hits = rescoreByFM(hits,line);
@@ -132,9 +139,14 @@ public class Searcher {
 		if (hits[i].score < mins)
 		    break;
 		int docId = hits[i].doc;
-		System.out.print("\ti=" + (docId+1) + ",s=" + hits[i].score);
+		Document d = searcher.doc(docId);
+		if (noperfect && line.equals(d.get("source"))) {
+		    continue;
+		}
+		if (txt || i>0)
+		    System.out.print("\t");
+		System.out.print((docId+1) + "," + hits[i].score);
 		if (txt) {
-		    Document d = searcher.doc(docId);
 		    System.out.print("\t" + d.get("source")  + "\t" + d.get("target"));
 		}
 	    }
