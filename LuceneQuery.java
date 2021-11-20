@@ -3,6 +3,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.nio.file.Files;
+import java.lang.*;
+import java.util.*;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -33,6 +35,7 @@ public class LuceneQuery {
         String dir = "";
         String file = "";
 	int n_best = 1;
+	boolean fuzzymatch = false;
 	boolean txt = false;
         int i = 0;
         while (i<args.length) {
@@ -51,6 +54,10 @@ public class LuceneQuery {
                 n_best = Integer.parseInt(args[i]);
                 i++;
             }
+            else if (args[i].equals("-fuzzymatch")) {
+                i++;
+		fuzzymatch = true;
+	    }
             else if (args[i].equals("-txt")) {
                 i++;
 		txt = true;
@@ -65,16 +72,17 @@ public class LuceneQuery {
             Exit("missing -f option");
 
 	Searcher idx = new Searcher(dir);
-	idx.searchFile(n_best,txt,file);
+	idx.searchFile(n_best,fuzzymatch,txt,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
-        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt]");
-        System.err.println("  -i  DIR : Read index in DIR");
-        System.err.println("  -f FILE : Find similar sentences indexed in DIR for sentences in FILE");
-        System.err.println("  -n  INT : Returns up to INT-best similar sentences (default 1)");
-        System.err.println("  -txt    : Output matched sentences (default false)");
+        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt] [-fuzzymatch]");
+        System.err.println("  -i      DIR : Read index in DIR");
+        System.err.println("  -f     FILE : Find similar sentences indexed in DIR for sentences in FILE");
+        System.err.println("  -n      INT : Returns up to INT-best similar sentences (default 1)");
+        System.err.println("  -txt        : Output string of matched sentences (default false)");
+        System.err.println("  -fuzzymatch : Sort using fuzzy match similarity score (default false)");
         System.exit(1);
     }
 }
@@ -95,7 +103,7 @@ public class Searcher {
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, boolean txt, String indexDataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST, boolean fuzzymatch, boolean txt, String indexDataPath) throws IOException, ParseException {
 	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(indexDataPath);
@@ -110,18 +118,36 @@ public class Searcher {
 	    System.out.print("q="+(++nline));
 	    if (txt)
 		System.out.print("\t"+line);
+	    //rescore by fuzzymatch score if needed
+	    if (fuzzymatch) 
+		hits = rescoreByFM(hits,line);
 	    for (int i = 0; i < hits.length; ++i) {
 		int docId = hits[i].doc;
-		Document d = searcher.doc(docId);
 		System.out.print("\ti=" + (docId+1) + ",s=" + hits[i].score);
-		if (txt)
+		if (txt) {
+		    Document d = searcher.doc(docId);
 		    System.out.print("\t" + d.get("source")  + "\t" + d.get("target"));
+		}
 	    }
 	    System.out.print("\n");
 	}
 	long endTime = System.currentTimeMillis();
 	System.err.println("LuceneQuery: Searched file with "+nline+" lines in "+(endTime-startTime)+" ms");
     }
+
+    public ScoreDoc[] rescoreByFM(ScoreDoc[] hits, String line) throws IOException {
+	String[] line_tokens = getAnalyzedTokens(line);	
+	for (int i = 0; i < hits.length; ++i) {
+	    Document d = searcher.doc(hits[i].doc);
+	    String[] source_tokens = getAnalyzedTokens(d.get("source"));
+	    float fm = 1 - ((float)editDistanceDP(line_tokens,source_tokens) / Math.max(line_tokens.length,source_tokens.length));
+	    hits[i].score = fm; // replace score by fuzzymatch score
+	}
+	//sort again by score (fuzzy match score)
+	Arrays.sort(hits, Comparator.comparing(sd -> sd.score));
+	Collections.reverse(Arrays.asList(hits));
+	return hits;
+    }    
 
     public BooleanQuery buildBooleanQuery(String sentence) throws IOException {
 	/* 
@@ -148,4 +174,49 @@ public class Searcher {
 	BooleanQuery query = queryBuilder.build();
 	return query;
     }
+
+    public String[] getAnalyzedTokens(String sentence) throws IOException {
+	List<String> tokens = new ArrayList<String>();
+	StandardAnalyzer analyzer = new StandardAnalyzer();
+	TokenStream ts= analyzer.tokenStream("source", sentence); //applies analyzer and split results into tokens
+	OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+        CharTermAttribute charTermAttribute = ts.addAttribute(CharTermAttribute.class);
+        try {
+            ts.reset();
+            while (ts.incrementToken()) {
+                tokens.add(charTermAttribute.toString());
+            }
+            ts.end();
+        } finally {
+            ts.close();
+        }
+	return tokens.toArray(new String[tokens.size()]); //convert List<String> to String[]
+    }
+
+    public int editDistanceDP(String[] s1, String[] s2) {
+	/*
+	System.err.println("s1: "+Arrays.toString(s1));
+	System.err.println("s2: "+Arrays.toString(s2));
+	*/
+        int[][] solution = new int[s1.length + 1][s2.length + 1];
+        for (int i = 0; i <= s2.length; i++) {
+            solution[0][i] = i;
+        }
+        for (int i = 0; i <= s1.length; i++) {
+            solution[i][0] = i;
+        }
+        int m = s1.length;
+        int n = s2.length;
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (s1[i - 1].equals(s2[j - 1]))
+                    solution[i][j] = solution[i - 1][j - 1];
+                else
+                    solution[i][j] = 1 + Math.min(solution[i][j - 1], Math.min(solution[i - 1][j], solution[i - 1][j - 1]));
+            }
+        }
+	//System.err.println("ed: "+solution[s1.length][s2.length]);
+        return solution[s1.length][s2.length];
+    }
 }
+
