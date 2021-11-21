@@ -10,7 +10,8 @@ tar xvzf lucene-8.11.0.tgz
 export LUCENE=.../somewhere/lucene-8.11.0
 export CLASSPATH=$LUCENE/core/lucene-core-8.11.0.jar:$LUCENE/analysis/common/lucene-analyzers-common-8.11.0.jar:$LUCENE/queryparser/lucene-queryparser-8.11.0.jar:$LUCENE/demo/lucene-demo-8.11.0.jar
 ```
-## Download this repository:
+* Download this repository:
 ```
 git clone https://github.com/jmcrego/FuzzyMatchingWithLucene.git
 ```
+## Use FuzzyMatchingWithLucene
