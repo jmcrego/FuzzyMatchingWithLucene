@@ -48,16 +48,23 @@ public class LuceneIndex {
 	    Exit("missing -f option/s");
 	
 	Indexer idx = new Indexer(dir);
-	for (String file : files)
-	    idx.indexFile(file);
+	for (String file : files) {
+	    String[] source_target = file.split(",");
+	    if (source_target.length == 2) {
+		idx.indexFiles(source_target[0],source_target[1]);
+	    }
+	    else {
+		idx.indexFile(file);
+	    }
+	}
 	idx.close();
     }
 
     private static void Exit(String e){
 	System.err.println("error: "+e);
 	System.err.println("usage: LuceneIndex -i DIR [-f FILE]+");
-	System.err.println("  -i  DIR : Create index in DIR (removes previous index if exists)");
-	System.err.println("  -f FILE : Index sentence pairs in FILE (two sentences per line separated by TAB)");
+	System.err.println("  -i   DIR : Create index in DIR (removes previous index if exists)");
+	System.err.println("  -f  FILE : Index sentence pairs in FILE (two sentences per line separated by TAB or use two parallel FILEs comma-separated)");
 	System.exit(1);
     }
 
@@ -87,24 +94,45 @@ public class Indexer {
 	String line;
 	int nline = 0;
 	while ((line = reader.readLine()) != null) {
-	    writer.addDocument(buildDocument(line, ++nline));
+	    String[] source_target = line.split("\t");
+	    if (source_target.length != 2) {
+		System.err.println("LuceneIndex: Bad sentence pair at line "+nline+": "+line);
+		System.exit(1);
+	    }
+	    writer.addDocument(buildDocument(source_target[0], source_target[1], ++nline));
 	}
 	writer.commit();
 	long endTime = System.currentTimeMillis();
 	System.err.println("LuceneIndex: Created index with "+writer.getDocStats().maxDoc+" sentences in "+(endTime-startTime)+" ms");
     }
 
-    private Document buildDocument(String line, int nline) {
-	String[] source_target = line.split("\t");
-	if (source_target.length != 2) {
-	    System.err.println("LuceneIndex: Bad sentence pair at line "+nline+": "+line);
-	    System.exit(1);
-	}
+    public void indexFiles(String indexDataPathSrc, String indexDataPathTgt) throws IOException {
+       System.err.println("LuceneIndex: Reading data from "+indexDataPathSrc+" AND "+indexDataPathTgt);
+       long startTime = System.currentTimeMillis();
+       File indexFileSrc = new File(indexDataPathSrc);
+       File indexFileTgt = new File(indexDataPathTgt);
+       BufferedReader readerSrc = Files.newBufferedReader(indexFileSrc.toPath());
+       BufferedReader readerTgt = Files.newBufferedReader(indexFileTgt.toPath());
+       String lineSrc, lineTgt;
+       int nline = 0;
+       while ( ((lineSrc = readerSrc.readLine()) != null) && ((lineTgt = readerTgt.readLine()) != null) ) {
+	   writer.addDocument(buildDocument(lineSrc, lineTgt, ++nline));
+       }
+       writer.commit();
+       long endTime = System.currentTimeMillis();
+       int nsents = writer.getDocStats().maxDoc;
+       long msec = endTime-startTime;
+       System.err.println("LuceneIndex: Created index with "+nsents+" sentences in "+msec+" ms ("+((float)1000*nsents/msec)+" sents/sec)");
+    }
+    
+    private Document buildDocument(String lsrc, String ltgt, int nline) {
 	Document doc = new Document();
-	TextField source = new TextField("source", source_target[0], Field.Store.YES);  //analyzed using StandardAnalyzer, stored for search
-	StringField target = new StringField("target", source_target[1], Field.Store.YES); //not analysed, stored for search
+	TextField source = new TextField("source", lsrc, Field.Store.YES);  //analyzed using StandardAnalyzer, stored for search
+	StringField target = new StringField("target", ltgt, Field.Store.YES); //not analysed, stored for search
+	StringField position = new StringField("position", String.valueOf(nline), Field.Store.YES); //not analysed, stored for search
 	doc.add(source);
 	doc.add(target);
+	doc.add(position);
 	return doc;
     }
     
