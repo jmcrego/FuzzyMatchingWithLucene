@@ -1,2 +1,4 @@
 # FuzzyMatchingWithLucene
-Code to implement Fuzzy Matching (index and retrieval) using Java Lucene
+Code to implement sentence-based Fuzzy Matching (index and retrieval) using Java Lucene
+
+* Install
