@@ -31,31 +31,37 @@ mv ./raw/dev/news-test2008.{en,fr} ./raw/
 rm -rf ./raw/dev*
 ```
 
+From now on:
+NEWS_TRN_EN=./raw/news-commentary-v14.en
+NEWS_TRN_FR=./raw/news-commentary-v14.fr
+NEWS_TST_EN=./raw/news-test2008.en
+NEWS_TST_FR=./raw/news-test2008.fr
+
 ## Use LuceneIndex.java to create indexes:
 * To index a raw corpus (ex: news-commentary-v14.en):
 ```
-java LuceneIndex.java -i ./index1 -f news,./raw/news-commentary-v14.en
+java LuceneIndex.java -i ./index1 -f news,$NEWS_TRN_EN
 ```
 * To index a raw parallel corpus (ex: news-commentary-v14.en and news-commentary-v14.fr). The index is created over the english side:
 ```
-java LuceneIndex.java -i ./index2 -f news,./raw/news-commentary-v14.en,./raw/news-commentary-v14.fr
+java LuceneIndex.java -i ./index2 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR
 ```
 * To index a raw parallel corpus (ex: news-commentary-v14.fr and news-commentary-v14.en). The index is created over the french side:
 ```
-java LuceneIndex.java -i ./index3 -f news,./raw/news-commentary-v14.fr,./raw/news-commentary-v14.en
+java LuceneIndex.java -i ./index3 -f news,$NEWS_TRN_FR,$NEWS_TRN_EN
 ```
 
 ## Use LuceneQuery.java to query the previous indexes:
 
 To find the n-most similar sentences in index1 of each sentence available in news-test2008.en:
 ```
-java LuceneQuery.java -i ./index1 -f ./raw/news-test2008.en -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index1 -f $NEWS_TST_EN -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
 To find the n-most similar sentences in index2 of each sentence available in news-test2008.en:
 ```
-java LuceneQuery.java -i ./index2 -f ./raw/news-test2008.en -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index2 -f $NEWS_TST_EN -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
 To find the n-most similar sentences in index3 of each sentence available in news-test2008.fr:
 ```
-java LuceneQuery.java -i ./index3 -f ./raw/news-test2008.fr -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index3 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
