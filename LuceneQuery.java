@@ -37,7 +37,8 @@ public class LuceneQuery {
 	int n_best = 1;
 	float mins = 0.0f;
 	boolean fuzzymatch = false;
-	boolean txt = false;
+	boolean query = false;
+	boolean match = false;
 	boolean noperfect = false;
 	String name = "";
         int i = 0;	
@@ -71,9 +72,13 @@ public class LuceneQuery {
                 i++;
 		fuzzymatch = true;
 	    }
-            else if (args[i].equals("-txt")) {
+            else if (args[i].equals("-query")) {
                 i++;
-		txt = true;
+		query = true;
+	    }
+            else if (args[i].equals("-match")) {
+                i++;
+		match = true;
 	    }
             else if (args[i].equals("-noperfect")) {
                 i++;
@@ -89,16 +94,17 @@ public class LuceneQuery {
             Exit("missing -f option");
 
 	Searcher idx = new Searcher(dir);
-	idx.searchFile(n_best,fuzzymatch,mins,noperfect,txt,name,file);
+	idx.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,name,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
-        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-txt] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
+        System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-query] [-match] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
         System.err.println("  -i       DIR : Read index in DIR");
         System.err.println("  -f      FILE : Find sentences indexed in DIR similar to sentences in FILE");
         System.err.println("  -n       INT : Returns up to INT-best similar sentences (default 1)");
-        System.err.println("  -txt         : Output string of matched sentences (default false)");
+        System.err.println("  -query       : Output string corresponding to queried sentences (default false)");
+        System.err.println("  -match       : Output string corresponding to matched sentences in index (default false)");
         System.err.println("  -fuzzymatch  : Sort using fuzzy match similarity score (default false)");
         System.err.println("  -noperfect   : Do not consider perfect matches (default false)");
         System.err.println("  -mins  FLOAT : Min score to consider a match (default 0.0)");
@@ -116,14 +122,13 @@ public class Searcher {
     
     public Searcher(String indexDirectoryPath) throws IOException {
 	System.err.println("LuceneQuery: Reading index "+indexDirectoryPath);
-	QueryParser queryParser = new QueryParser("source", new StandardAnalyzer());
 	File d=new File(indexDirectoryPath);
         Directory indexDirectory = FSDirectory.open(d.toPath());
 	IndexReader reader = DirectoryReader.open(indexDirectory);
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean txt, String name,String indexDataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match, String name,String indexDataPath) throws IOException, ParseException {
 	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(indexDataPath);
@@ -131,34 +136,40 @@ public class Searcher {
         String line;
 	int nline = 0;
         while ((line = reader.readLine()) != null) {
-	    BooleanQuery query = buildBooleanQuery(line,name);
+	    BooleanQuery booleanQuery = buildBooleanQuery(line,name);
 	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
-	    searcher.search(query, collector);
+	    searcher.search(booleanQuery, collector);
 	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
 	    //System.out.print("q="+(++nline));
 	    nline++;
-	    if (txt)
-		System.out.print(line);
-	    //rescore by fuzzymatch score if needed
-	    if (fuzzymatch) 
+	    String out = "";
+	    if (query)
+		out = line;
+	    if (fuzzymatch) //rescore by fuzzymatch score if required
 		hits = rescoreByFM(hits,line);
 	    for (int i = 0; i < hits.length; ++i) {
-		if (hits[i].score < mins)
+		if (hits[i].score < mins) //prune by min score
 		    break;
 		int docId = hits[i].doc;
 		Document d = searcher.doc(docId);
-		if (noperfect && line.equals(d.get("source"))) {
+		String src = d.get("source");
+		String tgt = d.get("target");
+		String pos = d.get("position");
+		String desc = d.get("name");
+		String score = String.format("%.6f",hits[i].score);
+ 		if (noperfect && line.equals(src)) { //perfect match (not used)
 		    continue;
 		}
-		if (txt || i>0)
-		    System.out.print("\t");
-		String position = d.get("position");
-		System.out.print(position + ":" + String.format("%.6f", hits[i].score) + ":" + d.get("name"));
-		if (txt) {
-		    System.out.print("\t" + d.get("source")  + "\t" + d.get("target"));
+		if (!out.equals(""))
+		    out += "\t";
+		out += desc + ":" + pos + ":" + score;
+		if (match) {
+		    out += "\t" + src;
+		    if (tgt != null) 
+			out += "\t" + tgt;
 		}
 	    }
-	    System.out.print("\n");
+	    System.out.println(out);
 	}
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
@@ -183,6 +194,7 @@ public class Searcher {
 	/* 
 	   This functions returns a boolean query for the input sentence.
 	   First applies the StandardAnalyzer over sentence, then each of the resulting tokens are added as terms of the query
+	   the term with 'name' field is also added to the query as MUST (it must appear in results)
 	   Minimum number of term matches is 1
 	 */
 	int minmatch = 1;

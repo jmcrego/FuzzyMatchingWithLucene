@@ -10,6 +10,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
@@ -51,7 +52,7 @@ public class LuceneIndex {
 	for (String file : files) {
 	    String[] name_source_targets = file.split(",");
 	    if (name_source_targets.length >= 2) {
-		idx.indexFileDesc(name_source_targets);
+		idx.indexFile(name_source_targets);
 	    }
 	    else {
 		Exit("Bad -f option: use at least 2 fields");
@@ -86,7 +87,7 @@ public class Indexer {
 	writer = new IndexWriter(indexDirectory, conf);
     }
 
-    public void indexFileDesc(String[] desc) throws IOException {
+    public void indexFile(String[] desc) throws IOException {
 	System.err.println("LuceneIndex: Reading "+desc[0]+" data");
 	long startTime = System.currentTimeMillis();
 	BufferedReader[] readerFiles = new BufferedReader[desc.length-1];
@@ -109,73 +110,23 @@ public class Indexer {
 	}
 	writer.commit();
 	long endTime = System.currentTimeMillis();
-	System.err.println("LuceneIndex: Created index with "+writer.getDocStats().maxDoc+" sentences in "+(endTime-startTime)+" ms");
+	System.err.println("LuceneIndex: added "+nline+" sentences in "+(endTime-startTime)+" ms [index contains "+writer.getDocStats().maxDoc+" sentences]");
     }
 
-    public void indexFile(String indexDataPath) throws IOException {
-	System.err.println("LuceneIndex: Reading data from "+indexDataPath);
-	long startTime = System.currentTimeMillis();
-	File indexFile = new File(indexDataPath);
-	BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
-	String line;
-	int nline = 0;
-	while ((line = reader.readLine()) != null) {
-	    String[] source_target = line.split("\t");
-	    if (source_target.length != 2) {
-		System.err.println("LuceneIndex: Bad sentence pair at line "+nline+": "+line);
-		System.exit(1);
-	    }
-	    writer.addDocument(buildDocument(source_target[0], source_target[1], ++nline));
-	}
-	writer.commit();
-	long endTime = System.currentTimeMillis();
-	System.err.println("LuceneIndex: Created index with "+writer.getDocStats().maxDoc+" sentences in "+(endTime-startTime)+" ms");
-    }
-
-    public void indexFiles(String indexDataPathSrc, String indexDataPathTgt) throws IOException {
-       System.err.println("LuceneIndex: Reading data from "+indexDataPathSrc+" AND "+indexDataPathTgt);
-       long startTime = System.currentTimeMillis();
-       File indexFileSrc = new File(indexDataPathSrc);
-       File indexFileTgt = new File(indexDataPathTgt);
-       BufferedReader readerSrc = Files.newBufferedReader(indexFileSrc.toPath());
-       BufferedReader readerTgt = Files.newBufferedReader(indexFileTgt.toPath());
-       String lineSrc, lineTgt;
-       int nline = 0;
-       while ( ((lineSrc = readerSrc.readLine()) != null) && ((lineTgt = readerTgt.readLine()) != null) ) {
-	   writer.addDocument(buildDocument(lineSrc, lineTgt, ++nline));
-       }
-       writer.commit();
-       long endTime = System.currentTimeMillis();
-       int nsents = writer.getDocStats().maxDoc;
-       long msec = endTime-startTime;
-       System.err.println("LuceneIndex: Created index with "+nsents+" sentences in "+msec+" ms ("+((float)1000*nsents/msec)+" sents/sec)");
-    }
-    
-    private Document buildDocument(String lsrc, String ltgt, int nline) {
-	Document doc = new Document();
-	TextField source = new TextField("source", lsrc, Field.Store.YES);  //analyzed using StandardAnalyzer, stored for search
-	StringField target = new StringField("target", ltgt, Field.Store.YES); //not analysed, stored for search
-	StringField position = new StringField("position", String.valueOf(nline), Field.Store.YES); //not analysed, stored for search
-	doc.add(source);
-	doc.add(target);
-	doc.add(position);
-	return doc;
-    }
-    
     private Document buildDocument(String desc, String[] lines, int nline) {
 	Document doc = new Document();
-	StringField name = new StringField("name", desc, Field.Store.YES); //not analysed, stored for search
+	StringField name = new StringField("name", desc, Field.Store.YES); //not analysed, indexed, stored for retrieval
 	doc.add(name);
-	StringField position = new StringField("position", String.valueOf(nline), Field.Store.YES); //not analysed, stored for search
-	doc.add(position);
-	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, stored for search
+	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, indexed, stored for retrieval
 	doc.add(source);
-	if (lines.length >= 3) {
+	StoredField position = new StringField("position", String.valueOf(nline)); //not analysed, not indexed, only stored for retrieval
+	doc.add(position);
+	if (lines.length >= 2) {
 	    String t = lines[1];
 	    for (int i=2; i<lines.length; i++) {
 		t += "\t" + lines[i];
 	    }
-	    StringField target = new StringField("target", t, Field.Store.YES); //not analysed, stored for search
+	    StoredField target = new StoredField("target", t); //not analysed, not indexed, only stored for retrieval
 	    doc.add(target);
 	}
 	return doc;
