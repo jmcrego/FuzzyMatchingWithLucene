@@ -38,11 +38,11 @@ java LuceneIndex.java -i ./index1 -f news,./raw/news-commentary-v14.en
 ```
 * To index a raw parallel corpus (ex: news-commentary-v14.en and news-commentary-v14.fr). The index is created over the english side:
 ```
-java LuceneIndex.java -i index2 -f news,./raw/news-commentary-v14.en,./raw/news-commentary-v14.fr
+java LuceneIndex.java -i ./index2 -f news,./raw/news-commentary-v14.en,./raw/news-commentary-v14.fr
 ```
 * To index a raw parallel corpus (ex: news-commentary-v14.fr and news-commentary-v14.en). The index is created over the french side:
 ```
-java LuceneIndex.java -i index3 -f news,./raw/news-commentary-v14.fr,./raw/news-commentary-v14.en
+java LuceneIndex.java -i ./index3 -f news,./raw/news-commentary-v14.fr,./raw/news-commentary-v14.en
 ```
 
 ## Use LuceneQuery.java to query the previous indexes:
