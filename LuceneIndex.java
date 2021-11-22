@@ -48,27 +48,25 @@ public class LuceneIndex {
 	if (files.size() == 0)
 	    Exit("missing -f option/s");
 	
-	Indexer idx = new Indexer(dir);
 	for (String file : files) {
-	    String[] name_source_targets = file.split(",");
-	    if (name_source_targets.length >= 2) {
-		idx.indexFile(name_source_targets);
+	    String[] tm_source_targets = file.split(",");
+	    if (tm_source_targets.length >= 2) {
+		Indexer idx = new Indexer(dir);
+		idx.indexFile(dir,tm_source_targets);
 	    }
 	    else {
 		Exit("Bad -f option: use at least 2 fields");
 	    }
 	}
-	idx.close();
     }
 
     private static void Exit(String e){
 	System.err.println("error: "+e);
-	System.err.println("usage: LuceneIndex -i DIR [-f NAME,FILE0[,FILE1]*]+");
-	System.err.println("  -i                 DIR : Create a TM index in DIR (removes previous TM if exists)");
-	System.err.println("  -f  NAME,FILE0[,FILE1] : Build a TM Index named NAME using FILE0 for indexing and storing additional FILE1's parallel files");
+	System.err.println("usage: LuceneIndex -i DIR [-f TM,FILE0[,FILE1]*]+");
+	System.err.println("  -i             DIR : Create indexs in DIR");
+	System.err.println("  -f  TM,FILE[,FPAR] : Build an index in DIR/TM (removes previous if exists) using FILE for indexing and storing additional FPAR's parallel files");
 	System.exit(1);
     }
-
 }
 
 /***********************************************************************************/
@@ -76,23 +74,32 @@ public class LuceneIndex {
 /***********************************************************************************/
 
 public class Indexer {
-    private IndexWriter writer;
-
-    public Indexer(String indexDirectoryPath) throws IOException {
-	System.err.println("LuceneIndex: Building index "+indexDirectoryPath);
-	IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
-	conf.setOpenMode(OpenMode.CREATE);
-	File d=new File(indexDirectoryPath);
-	Directory indexDirectory = FSDirectory.open(d.toPath());
-	writer = new IndexWriter(indexDirectory, conf);
+    private String indexDirectoryPath;
+    
+    private void progress(int n){
+	if (n%1000000 == 0)
+	    System.err.print(n);
+	else if (n%100000 == 0)
+	    System.err.print(".");
     }
 
-    public void indexFile(String[] desc) throws IOException {
-	System.err.println("LuceneIndex: Reading "+desc[0]+" data");
+    public Indexer(String dir) {
+	indexDirectoryPath = dir;
+    }
+
+    public void indexFile(String indexDirectoryPath, String[] desc) throws IOException {
+	//System.err.println("LuceneIndex: Building index "+indexDirectoryPath+"/"+desc[0]);
+	IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
+	conf.setOpenMode(OpenMode.CREATE);
+	File d=new File(indexDirectoryPath+"/"+desc[0]);
+	Directory indexDirectory = FSDirectory.open(d.toPath());
+	IndexWriter writer = new IndexWriter(indexDirectory, conf);
+
+	System.err.println("LuceneIndex: Reading "+desc[0]);
 	long startTime = System.currentTimeMillis();
 	BufferedReader[] readerFiles = new BufferedReader[desc.length-1];
 	for (int i=0 ; i<desc.length-1; i++) {
-	    System.err.println("LuceneIndex: Opening "+desc[i+1]);
+	    System.err.print("LuceneIndex: Opening "+desc[i+1]);
 	    File indexFile = new File(desc[i+1]);
 	    readerFiles[i] = Files.newBufferedReader(indexFile.toPath());
 	}
@@ -105,19 +112,20 @@ public class Indexer {
 		if (lines[i] == null)
 		    end = true;
 	    }
-	    if (!end)
+	    if (!end) {
 		writer.addDocument(buildDocument(desc[0],lines,++nline));
+		progress(nline);
+	    }
 	}
 	writer.commit();
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
-	System.err.println("LuceneIndex: added "+nline+" sentences in "+String.format("%.2f",(float)msec/100)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
+	System.err.println(" found "+nline+" sentences in "+String.format("%.2f",(float)msec/100)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
+	writer.close();
     }
 
     private Document buildDocument(String desc, String[] lines, int nline) {
 	Document doc = new Document();
-	StringField name = new StringField("name", desc, Field.Store.YES); //not analysed, indexed, stored for retrieval
-	doc.add(name);
 	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, indexed, stored for retrieval
 	doc.add(source);
 	StoredField position = new StoredField("position", String.valueOf(nline)); //not analysed, not indexed, only stored for retrieval
@@ -131,9 +139,5 @@ public class Indexer {
 	    doc.add(target);
 	}
 	return doc;
-    }
-    
-    public void close() throws CorruptIndexException, IOException {
-	writer.close();
     }
 }
