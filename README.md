@@ -4,44 +4,32 @@ Code to implement sentence-based Fuzzy Matching (index and retrieval) using Java
 ## Install Lucene
 * Download Lucene and set your java CLASSPATH:
 ```
-wget -P .../somewhere/lucene-8.11.0.tgz https://dlcdn.apache.org/lucene/java/8.11.0/lucene-8.11.0.tgz
-tar xvzf .../somewhere/lucene-8.11.0.tgz -C .../somewhere/
-export LUCENE=.../somewhere/lucene-8.11.0
+cd somewhere
+wget https://dlcdn.apache.org/lucene/java/8.11.0/lucene-8.11.0.tgz
+tar xvzf lucene-8.11.0.tgz
+export LUCENE=.../lucene-8.11.0
 export CLASSPATH=$LUCENE/core/lucene-core-8.11.0.jar:$LUCENE/analysis/common/lucene-analyzers-common-8.11.0.jar:$LUCENE/queryparser/lucene-queryparser-8.11.0.jar:$LUCENE/demo/lucene-demo-8.11.0.jar
 ```
 * Download this repository:
 ```
+cd somewhere
 git clone https://github.com/jmcrego/FuzzyMatchingWithLucene.git
+cd FuzzyMatchingWithLucene
 ```
 
 ## Download corpora for the next examples:
-* news-commentary-v14 and EMEA (english/french):
+* news-commentary-v14 and EMEA (english/french) and news-test2008.en (english):
 ```
-wget -P ./raw http://data.statmt.org/news-commentary/v14/training/news-commentary-v14.en-fr.tsv.gz
-zcat ./raw/news-commentary-v14.en-fr.tsv.gz | cut -f 1 > ./raw/news-commentary-v14.en
-zcat ./raw/news-commentary-v14.en-fr.tsv.gz | cut -f 2 > ./raw/news-commentary-v14.fr
-rm -rf ./raw/news-commentary-v14.en-fr.tsv.gz
-wget -P ./raw http://opus.nlpl.eu/download.php?f=EMEA/en-fr.txt.zip
-unzip -d ./raw ./raw/download.php?f=EMEA%2Fen-fr.txt.zip
-rm -f raw/download.php\?f\=EMEA%2Fen-fr.txt.zip
-rm -f raw/README
+bash ./download.sh
 ```
-* news-test2008 (english):
+From now on we use:
 ```
-wget -P ./raw/ http://www.statmt.org/wmt14/dev.tgz
-tar xvzf ./raw/dev.tgz -C ./raw/
-mv ./raw/dev/news-test2008.{en,fr} ./raw/
-rm -rf ./raw/dev*
-```
-
-From now on:
-```
-NEWS_TRN_EN=./raw/news-commentary-v14.en
-NEWS_TRN_FR=./raw/news-commentary-v14.fr
-NEWS_TST_EN=./raw/news-test2008.en
-NEWS_TST_FR=./raw/news-test2008.fr
-EMEA_TRN_EN=./raw/EMEA.en-fr.en
-EMEA_TRN_FR=./raw/EMEA.en-fr.fr
+NEWS_TRN_EN=raw/news-commentary-v14.en
+NEWS_TRN_FR=raw/news-commentary-v14.fr
+NEWS_TST_EN=raw/news-test2008.en
+NEWS_TST_FR=raw/news-test2008.fr
+EMEA_TRN_EN=raw/EMEA.en-fr.en
+EMEA_TRN_FR=raw/EMEA.en-fr.fr
 ```
 
 ## Use LuceneIndex.java to create indexes:
