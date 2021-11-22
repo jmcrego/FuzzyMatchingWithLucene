@@ -35,25 +35,21 @@ EMEA_TRN_FR=raw/EMEA.en-fr.fr
 ## Use LuceneIndex.java to create indexes:
 Raw corpora are always used to index/query.
 
-* To index a raw corpus (ex: news-commentary-v14.en):
+* To index a monolingual corpus, name is news:
 ```
 java LuceneIndex.java -i ./index1 -f news,$NEWS_TRN_EN
 ```
-* To index a raw parallel corpus (ex: news-commentary-v14.en and news-commentary-v14.fr). The index is created over the english side:
+* To index a parallel corpus. The index is created over the first file in -f option (english corpus), name is news:
 ```
 java LuceneIndex.java -i ./index2 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR
 ```
-* To index a raw parallel corpus (ex: news-commentary-v14.fr and news-commentary-v14.en). The index is created over the french side:
+* To index a parallel corpus. The index is created over the french corpus, name is news:
 ```
 java LuceneIndex.java -i ./index3 -f news,$NEWS_TRN_FR,$NEWS_TRN_EN
 ```
-* To index a raw parallel corpus (ex: EMEA.en-fr.en and EMEA.en-fr.fr). The index is created over the english side:
+* To index two parallel corpora. The index is created over the english side, name are news and emea:
 ```
-java LuceneIndex.java -i ./index4 -f emea,$EMEA_TRN_EN,$EMEA_TRN_FR
-```
-* To index two raw parallel corpora (ex: news-commentary and EMEA). The index is created over the english side:
-```
-java LuceneIndex.java -i ./index5 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR -f emea,$EMEA_TRN_EN,$EMEA_TRN_FR
+java LuceneIndex.java -i ./index4 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR -f emea,$EMEA_TRN_EN,$EMEA_TRN_FR
 ```
 
 ## Use LuceneQuery.java to query the previous indexes:
@@ -72,5 +68,5 @@ java LuceneQuery.java -i ./index3 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -tx
 ```
 To find the n-most similar sentences in index5 of each sentence available in news-test2008.fr:
 ```
-java LuceneQuery.java -i ./index5 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index4 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
