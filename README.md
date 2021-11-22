@@ -33,6 +33,8 @@ EMEA_TRN_FR=raw/EMEA.en-fr.fr
 ```
 
 ## Use LuceneIndex.java to create indexes:
+Raw corpora are always used to index/query.
+
 * To index a raw corpus (ex: news-commentary-v14.en):
 ```
 java LuceneIndex.java -i ./index1 -f news,$NEWS_TRN_EN
