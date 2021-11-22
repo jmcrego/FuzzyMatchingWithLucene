@@ -32,10 +32,10 @@ rm -rf ./raw/dev*
 ```
 
 From now on:
-NEWS_TRN_EN=./raw/news-commentary-v14.en
-NEWS_TRN_FR=./raw/news-commentary-v14.fr
-NEWS_TST_EN=./raw/news-test2008.en
-NEWS_TST_FR=./raw/news-test2008.fr
+ NEWS_TRN_EN=./raw/news-commentary-v14.en
+ NEWS_TRN_FR=./raw/news-commentary-v14.fr
+ NEWS_TST_EN=./raw/news-test2008.en
+ NEWS_TST_FR=./raw/news-test2008.fr
 
 ## Use LuceneIndex.java to create indexes:
 * To index a raw corpus (ex: news-commentary-v14.en):
