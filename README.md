@@ -26,19 +26,19 @@ mv ./raw/dev/news-test2008.en ./raw/
 rm -rf ./raw/dev*
 ```
 ## Use FuzzyMatchingWithLucene
-* To index a raw corpus (ex: news-commentary-v14.en) in an input language, use the next command to create the index:
+* Use the next command to index a raw corpus (ex: news-commentary-v14.en):
 ```
 java LuceneIndex.java -i ./index1 -f news,./raw/news-commentary-v14.en
 ```
-then you can query the index to find the n-most similar sentences of each available in a given test file:
+Use the next command to query the previous index to find the n-most similar sentences of each sentence available in test file:
 ```
-java LuceneQuery.java -i ./index1 -f ./raw/news-test2008.en -n 10 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index1 -f ./raw/news-test2008.en -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
-* To index a raw parallel corpus (ex: news-commentary-v14.en and news-commentary-v14.fr) in english/french language, use the next command to create the index (english side): 
+* Use the next command to index a raw parallel corpus (ex: news-commentary-v14.en and news-commentary-v14.fr). The index is created over the english side:
 ```
 java LuceneIndex.java -i index2 -f news,./raw/news-commentary-v14.en,./raw/news-commentary-v14.fr
 ```
 then you can query the index to find the n-most similar sentences of each available in a given test file:
 ```
-java LuceneQuery.java -i ./index2 -f ./raw/news-test2008.en -n 10 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index2 -f ./raw/news-test2008.en -n 1 -fuzzymatch -mins 0.5 -txt -name news
 ```
