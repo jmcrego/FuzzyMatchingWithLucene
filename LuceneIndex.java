@@ -49,12 +49,12 @@ public class LuceneIndex {
 	
 	Indexer idx = new Indexer(dir);
 	for (String file : files) {
-	    String[] source_target = file.split(",");
-	    if (source_target.length == 2) {
-		idx.indexFiles(source_target[0],source_target[1]);
+	    String[] name_source_targets = file.split(",");
+	    if (name_source_targets.length >= 2) {
+		idx.indexFileDesc(name_source_targets);
 	    }
 	    else {
-		idx.indexFile(file);
+		Exit("Bad -f option: use at least 2 fields");
 	    }
 	}
 	idx.close();
@@ -62,9 +62,9 @@ public class LuceneIndex {
 
     private static void Exit(String e){
 	System.err.println("error: "+e);
-	System.err.println("usage: LuceneIndex -i DIR [-f FILE]+");
-	System.err.println("  -i   DIR : Create index in DIR (removes previous index if exists)");
-	System.err.println("  -f  FILE : Index sentence pairs in FILE (two sentences per line separated by TAB or use two parallel FILEs comma-separated)");
+	System.err.println("usage: LuceneIndex -i DIR [-f NAME,FILE[,FILE]]+");
+	System.err.println("  -i               DIR : Create index in DIR (removes previous index if exists)");
+	System.err.println("  -f  NAME,FILE[,FILE] : Index sentences named NAME in FILE (additional FILEs are stored not indexed)");
 	System.exit(1);
     }
 
@@ -84,6 +84,32 @@ public class Indexer {
 	File d=new File(indexDirectoryPath);
 	Directory indexDirectory = FSDirectory.open(d.toPath());
 	writer = new IndexWriter(indexDirectory, conf);
+    }
+
+    public void indexFileDesc(String[] desc) throws IOException {
+	System.err.println("LuceneIndex: Reading "+desc[0]+" data");
+	long startTime = System.currentTimeMillis();
+	BufferedReader[] readerFiles = new BufferedReader[desc.length-1];
+	for (int i=0 ; i<desc.length-1; i++) {
+	    System.err.println("LuceneIndex: Opening "+desc[i+1]);
+	    File indexFile = new File(desc[i+1]);
+	    readerFiles[i] = Files.newBufferedReader(indexFile.toPath());
+	}
+	int nline = 0;
+	String[] lines = new String[desc.length-1];
+	boolean end = false;
+	while (!end) {
+	    for (int i=0 ; i<desc.length-1 && !end; i++) {
+		lines[i] = readerFiles[i].readLine();
+		if (lines[i] == null)
+		    end = true;
+	    }
+	    if (!end)
+		writer.addDocument(buildDocument(desc[0],lines,++nline));
+	}
+	writer.commit();
+	long endTime = System.currentTimeMillis();
+	System.err.println("LuceneIndex: Created index with "+writer.getDocStats().maxDoc+" sentences in "+(endTime-startTime)+" ms");
     }
 
     public void indexFile(String indexDataPath) throws IOException {
@@ -133,6 +159,25 @@ public class Indexer {
 	doc.add(source);
 	doc.add(target);
 	doc.add(position);
+	return doc;
+    }
+    
+    private Document buildDocument(String desc, String[] lines, int nline) {
+	Document doc = new Document();
+	StringField name = new StringField("name", desc, Field.Store.YES); //not analysed, stored for search
+	doc.add(name);
+	StringField position = new StringField("position", String.valueOf(nline), Field.Store.YES); //not analysed, stored for search
+	doc.add(position);
+	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, stored for search
+	doc.add(source);
+	if (lines.length >= 3) {
+	    String t = lines[1];
+	    for (int i=2; i<lines.length; i++) {
+		t += "\t" + lines[i];
+	    }
+	    StringField target = new StringField("target", t, Field.Store.YES); //not analysed, stored for search
+	    doc.add(target);
+	}
 	return doc;
     }
     
