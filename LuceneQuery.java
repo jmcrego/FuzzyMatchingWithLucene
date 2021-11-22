@@ -101,14 +101,14 @@ public class LuceneQuery {
         System.err.println("error: "+e);
         System.err.println("usage: LuceneQuery -i DIR -f FILE [-n INT] [-query] [-match] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
         System.err.println("  -i       DIR : Read index in DIR");
-        System.err.println("  -f      FILE : Find sentences indexed in DIR similar to sentences in FILE");
+        System.err.println("  -f      FILE : Find sentences of TM indexed in DIR similar to sentences in FILE");
         System.err.println("  -n       INT : Returns up to INT-best similar sentences (default 1)");
-        System.err.println("  -query       : Output string corresponding to queried sentences (default false)");
-        System.err.println("  -match       : Output string corresponding to matched sentences in index (default false)");
-        System.err.println("  -fuzzymatch  : Sort using fuzzy match similarity score (default false)");
-        System.err.println("  -noperfect   : Do not consider perfect matches (default false)");
+        System.err.println("  -query       : Output string corresponding to queried sentences");
+        System.err.println("  -match       : Output string corresponding to matched sentences in index");
+        System.err.println("  -fuzzymatch  : Sort n-best list using fuzzy match similarity score (use with -n)");
+        System.err.println("  -noperfect   : Do not consider perfect matches");
         System.err.println("  -mins  FLOAT : Min score to consider a match (default 0.0)");
-        System.err.println("  -name STRING : Consider only sentences indexed as STRING");
+        System.err.println("  -name STRING : Consider only sentences of the TM named STRING");
         System.exit(1);
     }
 }
@@ -128,10 +128,10 @@ public class Searcher {
 	searcher = new IndexSearcher(reader);
     }
 
-    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match, String name,String indexDataPath) throws IOException, ParseException {
-	System.err.println("LuceneQuery: Searching data path " + indexDataPath );
+    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match, String name,String dataPath) throws IOException, ParseException {
+	System.err.println("LuceneQuery: Searching file "+dataPath);
 	long startTime = System.currentTimeMillis();
-        File indexFile = new File(indexDataPath);
+        File indexFile = new File(dataPath);
         BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
         String line;
 	int nline = 0;
@@ -173,7 +173,7 @@ public class Searcher {
 	}
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
-	System.err.println("LuceneQuery: Searched file with "+nline+" sentences in "+msec+" ms ("+((float)1000*nline/msec)+" sents/sec)");
+	System.err.println("LuceneQuery: Searched file with "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
     }
 
     public ScoreDoc[] rescoreByFM(ScoreDoc[] hits, String line) throws IOException {

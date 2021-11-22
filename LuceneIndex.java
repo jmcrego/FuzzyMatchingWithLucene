@@ -63,9 +63,9 @@ public class LuceneIndex {
 
     private static void Exit(String e){
 	System.err.println("error: "+e);
-	System.err.println("usage: LuceneIndex -i DIR [-f NAME,FILE[,FILE]]+");
-	System.err.println("  -i               DIR : Create index in DIR (removes previous index if exists)");
-	System.err.println("  -f  NAME,FILE[,FILE] : Index sentences named NAME in FILE (additional FILEs are stored not indexed)");
+	System.err.println("usage: LuceneIndex -i DIR [-f NAME,FILE0[,FILE1]*]+");
+	System.err.println("  -i                 DIR : Create a TM index in DIR (removes previous TM if exists)");
+	System.err.println("  -f  NAME,FILE0[,FILE1] : Build a TM Index named NAME using FILE0 for indexing and storing additional FILE1's parallel files");
 	System.exit(1);
     }
 
@@ -110,7 +110,8 @@ public class Indexer {
 	}
 	writer.commit();
 	long endTime = System.currentTimeMillis();
-	System.err.println("LuceneIndex: added "+nline+" sentences in "+(endTime-startTime)+" ms [index contains "+writer.getDocStats().maxDoc+" sentences]");
+	long msec = endTime-startTime;
+	System.err.println("LuceneIndex: added "+nline+" sentences in "+String.format("%.2f",(float)msec/100)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
     }
 
     private Document buildDocument(String desc, String[] lines, int nline) {
