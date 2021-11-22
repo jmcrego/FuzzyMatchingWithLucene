@@ -14,7 +14,7 @@ export CLASSPATH=$LUCENE/core/lucene-core-8.11.0.jar:$LUCENE/analysis/common/luc
 ```
 git clone https://github.com/jmcrego/FuzzyMatchingWithLucene.git
 ```
-## Download the news-commentary-v8 english/french corpora for the next examples:
+## Download corpora for the next examples:
 ```
 wget -P ./raw http://data.statmt.org/news-commentary/v14/training/news-commentary-v14.en-fr.tsv.gz
 zcat ./raw/news-commentary-v14.en-fr.tsv.gz | cut -f 1 > ./raw/news-commentary-v14.en
