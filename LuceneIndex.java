@@ -119,7 +119,7 @@ public class Indexer {
 	doc.add(name);
 	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, indexed, stored for retrieval
 	doc.add(source);
-	StoredField position = new StringField("position", String.valueOf(nline)); //not analysed, not indexed, only stored for retrieval
+	StoredField position = new StoredField("position", String.valueOf(nline)); //not analysed, not indexed, only stored for retrieval
 	doc.add(position);
 	if (lines.length >= 2) {
 	    String t = lines[1];
