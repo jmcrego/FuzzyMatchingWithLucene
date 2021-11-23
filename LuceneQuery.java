@@ -138,6 +138,24 @@ public class Searchers {
 	}
     }
 
+    public void searchFile(int N_BEST,int N_QUERY, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
+	long startTime = System.currentTimeMillis();
+        File indexFile = new File(dataPath);
+	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
+        BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
+        String line;
+	int nline = 0;
+        while ((line = reader.readLine()) != null) {
+	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,N_QUERY,mins,fuzzymatch,noperfect);
+	    String out = format_hits_of_line(line,hits,query,match);
+	    System.out.println(out);
+	    nline++;
+	}
+	long endTime = System.currentTimeMillis();
+	long msec = endTime-startTime;
+	System.err.println("LuceneQuery: Searched file with "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
+    }
+
     public Hit[] get_sorted_hits_of_line(String line, int N_BEST, int N_QUERY, float mins, boolean fuzzymatch, boolean noperfect) throws IOException {
 	List<Hit> allhits = new ArrayList<Hit>();
 	for (var searcher : searchers.entrySet()) { //collect hits for all available searchers (TMs)
@@ -182,24 +200,6 @@ public class Searchers {
 	return String.join("\t",out);
     }
     
-    public void searchFile(int N_BEST,int N_QUERY, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
-	long startTime = System.currentTimeMillis();
-        File indexFile = new File(dataPath);
-	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
-        BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
-        String line;
-	int nline = 0;
-        while ((line = reader.readLine()) != null) {
-	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,N_QUERY,mins,fuzzymatch,noperfect);
-	    String out = format_hits_of_line(line,hits,query,match);
-	    System.out.println(out);
-	    nline++;
-	}
-	long endTime = System.currentTimeMillis();
-	long msec = endTime-startTime;
-	System.err.println("LuceneQuery: Searched file with "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
-    }
-
     float rescoreByFM(String line, String source) throws IOException {
 	String[] line_tokens = getAnalyzedTokens(line);	
 	String[] source_tokens = getAnalyzedTokens(source);
