@@ -32,7 +32,7 @@ import org.apache.lucene.analysis.tokenattributes.*;
 public class LuceneQuery {
 
     public static void main(String[] args) throws IOException, ParseException {
-        String dir = "";
+	List<String> dirs = new ArrayList<String>();
         String file = "";
 	int n_best = 1;
 	float mins = 0.0f;
@@ -40,12 +40,12 @@ public class LuceneQuery {
 	boolean query = false;
 	boolean match = false;
 	boolean noperfect = false;
-	List<String> tms = new ArrayList<String>();
+	//	List<String> tms = new ArrayList<String>();
         int i = 0;
         while (i<args.length) {
             if (args[i].equals("-i") && i<args.length-1) {
                 i++;
-                dir = args[i];
+                dirs.add(args[i]);
                 i++;
             }
             else if (args[i].equals("-f") && i<args.length-1) {
@@ -61,11 +61,6 @@ public class LuceneQuery {
             else if (args[i].equals("-mins") && i<args.length-1) {
                 i++;
                 mins = Float.parseFloat(args[i]);
-                i++;
-            }
-            else if (args[i].equals("-tm") && i<args.length-1) {
-                i++;
-                tms.add(args[i]);
                 i++;
             }
             else if (args[i].equals("-fuzzymatch")) {
@@ -88,21 +83,20 @@ public class LuceneQuery {
                 Exit("Bad option: "+args[0]+" Use -i OR -f");
             }
         }
-        if (dir.equals(""))
+        if (dirs.size() == 0)
             Exit("missing -i option");
         if (file.equals(""))
             Exit("missing -f option");
 
-	Searcher idx = new Searcher(dir,tms);
-	idx.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,file);
+	Searchers idxs = new Searchers(dirs);
+	idxs.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,file);
     }
 
     private static void Exit(String e){
         System.err.println("error: "+e);
-        System.err.println("usage: LuceneQuery -i DIR -f FILE [-tm STRING]* [-n INT] [-query] [-match] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
-        System.err.println("  -i       DIR : Read index in DIR");
+        System.err.println("usage: LuceneQuery [-i DIR]+ -f FILE [-n INT] [-query] [-match] [-fuzzymatch] [-noperfect] [-mins FLOAT]");
+        System.err.println("  -i       DIR : Read TM index in DIR");
         System.err.println("  -f      FILE : Find sentences of TM indexed in DIR similar to sentences in FILE");
-        System.err.println("  -tm   STRING : Consider sentences of TM in DIR/STRING (default use DIR/*)");
         System.err.println("  -n       INT : Returns up to INT-best similar sentences (default 1)");
         System.err.println("  -query       : Output string corresponding to queried sentences");
         System.err.println("  -match       : Output string corresponding to matched sentences in index");
@@ -133,22 +127,17 @@ public class Hit {
     }
 }
 
-public class Searcher {
+public class Searchers {
     Map<String, IndexSearcher> searchers = new HashMap<String, IndexSearcher>();
     
-    public Searcher(String indexDirectoryPath, List<String> tms) throws IOException {
-	System.err.println("LuceneQuery: Reading index "+indexDirectoryPath);
-	if (tms.size() == 0){
-	    File d=new File(indexDirectoryPath);
-	    tms = java.util.Arrays.asList(d.list());
-	}
-	for (String tm : tms) {
-	    System.err.println("LuceneQuery: Opening TM "+indexDirectoryPath+"/"+tm);
-	    File d=new File(indexDirectoryPath+"/"+tm);
+    public Searchers(List<String> dirs) throws IOException {
+	for (String dir : dirs) {
+	    File d=new File(dir);
+	    System.err.println("LuceneQuery: Opening TM "+d.getName()+" : "+dir);
 	    Directory indexDirectory = FSDirectory.open(d.toPath());
 	    IndexReader reader = DirectoryReader.open(indexDirectory);
 	    IndexSearcher searcher = new IndexSearcher(reader);
-	    searchers.put(tm,searcher);
+	    searchers.put(d.getName(),searcher);
 	}
     }
 
@@ -176,8 +165,7 @@ public class Searcher {
 		}
 	    }
 	    //sorting allhits by score
-	    Hit[] hits = new Hit[allhits.size()]; //i need an array not a list
-	    allhits.toArray(hits); // fill the array	    
+	    Hit[] hits = allhits.toArray(new Hit[allhits.size()]); //to sort i need an array not a list
 	    Arrays.sort(hits, Comparator.comparing(h -> h.score));
 	    Collections.reverse(Arrays.asList(hits));	    
 	    String out = "";
@@ -189,7 +177,7 @@ public class Searcher {
 		    break;
 		if (hits[i].score < mins) //threshold pruning
 		    break;
- 		if (noperfect && line.equals(hits[i].src)) { //perfect match (not used)
+ 		if (noperfect && line.equals(hits[i].src)) { //perfect match pruning
 		    continue;
 		}
 		N++;
