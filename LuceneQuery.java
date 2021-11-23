@@ -40,7 +40,6 @@ public class LuceneQuery {
 	boolean query = false;
 	boolean match = false;
 	boolean noperfect = false;
-	//	List<String> tms = new ArrayList<String>();
         int i = 0;
         while (i<args.length) {
             if (args[i].equals("-i") && i<args.length-1) {
@@ -88,6 +87,7 @@ public class LuceneQuery {
         if (file.equals(""))
             Exit("missing -f option");
 
+	System.err.println("LuceneQuery: Options -n "+n_best+" -mins "+mins+" -fuzzymatch "+fuzzymatch+" -noperfect "+noperfect+" -query "+query+" -match "+match);
 	Searchers idxs = new Searchers(dirs);
 	idxs.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,file);
     }
@@ -133,7 +133,7 @@ public class Searchers {
     public Searchers(List<String> dirs) throws IOException {
 	for (String dir : dirs) {
 	    File d=new File(dir);
-	    System.err.println("LuceneQuery: Opening TM "+d.getName()+" : "+dir);
+	    System.err.println("LuceneQuery: Opening TM "+d.getName()+" : "+d.getAbsolutePath());
 	    Directory indexDirectory = FSDirectory.open(d.toPath());
 	    IndexReader reader = DirectoryReader.open(indexDirectory);
 	    IndexSearcher searcher = new IndexSearcher(reader);
@@ -142,9 +142,9 @@ public class Searchers {
     }
 
     public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
-	System.err.println("LuceneQuery: Searching file "+dataPath);
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(dataPath);
+	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
         BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
         String line;
 	int nline = 0;
@@ -251,10 +251,6 @@ public class Searchers {
     }
 
     public int editDistanceDP(String[] s1, String[] s2) {
-	/*
-	System.err.println("s1: "+Arrays.toString(s1));
-	System.err.println("s2: "+Arrays.toString(s2));
-	*/
         int[][] solution = new int[s1.length + 1][s2.length + 1];
         for (int i = 0; i <= s2.length; i++) {
             solution[0][i] = i;

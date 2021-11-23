@@ -89,14 +89,15 @@ public class Indexer {
 	IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
 	conf.setOpenMode(OpenMode.CREATE);
 	File d=new File(indexDirectoryPath);
+	System.err.println("LuceneIndex: Creating "+d.getAbsolutePath());	
 	Directory indexDirectory = FSDirectory.open(d.toPath());
 	IndexWriter writer = new IndexWriter(indexDirectory, conf);
 
 	long startTime = System.currentTimeMillis();
 	BufferedReader[] readerFiles = new BufferedReader[src_tgts.length];
 	for (int i=0 ; i<src_tgts.length; i++) {
-	    System.err.println("LuceneIndex: Opening "+src_tgts[i]);
 	    File indexFile = new File(src_tgts[i]);
+	    System.err.println("LuceneIndex: Opening (index="+(i==0)+") "+indexFile.getAbsolutePath());
 	    readerFiles[i] = Files.newBufferedReader(indexFile.toPath());
 	}
 	int nline = 0;
@@ -116,7 +117,7 @@ public class Indexer {
 	writer.commit();
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
-	System.err.println("\nfound "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
+	System.err.println("\nLuceneIndex: indexed "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
 	writer.close();
     }
 
