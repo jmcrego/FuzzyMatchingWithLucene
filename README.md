@@ -35,38 +35,26 @@ EMEA_TRN_FR=raw/EMEA.en-fr.fr
 ## Use LuceneIndex.java to create indexes:
 Raw corpora are always used to index/query.
 
-* To index a monolingual corpus, name is news:
+* To index the monolingual news corpus:
 ```
-java LuceneIndex.java -i ./index1 -f news,$NEWS_TRN_EN
+java LuceneIndex.java -i ./index1 -f $NEWS_TRN_EN
 ```
-* To index a parallel corpus. The index is created over the first file in -f option (english corpus), name is news:
+* To index the parallel news corpus. The index is created over the english side (first file in -f option):
 ```
-java LuceneIndex.java -i ./index2 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR
+java LuceneIndex.java -i ./index2 -f $NEWS_TRN_EN,$NEWS_TRN_FR
 ```
-* To index a parallel corpus. The index is created over the french corpus, name is news:
+* To index the parallel news and emea corpora. The index is created over the english sides (first file in -f option):
 ```
-java LuceneIndex.java -i ./index3 -f news,$NEWS_TRN_FR,$NEWS_TRN_EN
-```
-* To index two parallel corpora. The index is created over the english side, name are news and emea:
-```
-java LuceneIndex.java -i ./index4 -f news,$NEWS_TRN_EN,$NEWS_TRN_FR -f emea,$EMEA_TRN_EN,$EMEA_TRN_FR
+java LuceneIndex.java -i ./index3 -f $EMEA_TRN_EN,$EMEA_TRN_FR
 ```
 
 ## Use LuceneQuery.java to query the previous indexes:
 
-To find the n-most similar sentences in index1 of each sentence available in news-test2008.en:
+To find the 1-most similar sentences in index1 for each sentence in news-test2008.en:
 ```
-java LuceneQuery.java -i ./index1 -f $NEWS_TST_EN -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index1 -f $NEWS_TST_EN
 ```
-To find the n-most similar sentences in index2 of each sentence available in news-test2008.en:
+To find the 1-most similar sentences in index2 and index3 for each sentence in news-test2008.en:
 ```
-java LuceneQuery.java -i ./index2 -f $NEWS_TST_EN -n 1 -fuzzymatch -mins 0.5 -txt -name news
-```
-To find the n-most similar sentences in index3 of each sentence available in news-test2008.fr:
-```
-java LuceneQuery.java -i ./index3 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -txt -name news
-```
-To find the n-most similar sentences in index5 of each sentence available in news-test2008.fr:
-```
-java LuceneQuery.java -i ./index4 -f $NEWS_TST_FR -n 1 -fuzzymatch -mins 0.5 -txt -name news
+java LuceneQuery.java -i ./index2 -i i/index3 -f $NEWS_TST_EN
 ```
