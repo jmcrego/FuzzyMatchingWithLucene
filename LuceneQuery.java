@@ -87,7 +87,7 @@ public class LuceneQuery {
         if (file.equals(""))
             Exit("missing -f option");
 
-	System.err.println("LuceneQuery: Options -n "+n_best+" -mins "+mins+" -fuzzymatch "+fuzzymatch+" -noperfect "+noperfect+" -query "+query+" -match "+match);
+	System.err.println("LuceneQuery: Options -n "+n_best+" -mins "+mins+" "+(fuzzymatch ? " -fuzzymatch" : "")+(noperfect ? " -noperfect" : "")+(query ? " -query" : "")+(match ? " -match" : ""));
 	Searchers idxs = new Searchers(dirs);
 	idxs.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,file);
     }
@@ -126,11 +126,9 @@ public class Searchers {
 	}
     }
 
-    public Hit[] get_sorted_hits_for_line(String line, int N_BEST, boolean fuzzymatch) throws IOException {
+    public Hit[] get_sorted_hits_of_line(String line, int N_BEST, float mins, boolean fuzzymatch, boolean noperfect) throws IOException {
 	List<Hit> allhits = new ArrayList<Hit>();
 	for (var searcher : searchers.entrySet()) { //collect hits for all available searchers (TMs)
-	    //String tm = entry.getKey();
-	    //IndexSearcher searcher = entry.getValue();                                                                                                                                                                                 
 	    BooleanQuery booleanQuery = buildBooleanQuery(line);
 	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
 	    searcher.getValue().search(booleanQuery, collector);
@@ -138,7 +136,11 @@ public class Searchers {
 	    for (int i = 0; i < hits.length; ++i) {
 		int docId = hits[i].doc;
 		Document d = searcher.getValue().doc(docId);
+		if (noperfect && line.equals(d.get("source"))) //perfect match pruning
+		    continue;
 		float score = fuzzymatch ? rescoreByFM(d.get("source"),line) : hits[i].score;
+		if (score < mins) //threshold pruning
+		    continue;
 		allhits.add(new Hit(searcher.getKey(),d.get("position"),d.get("source"),d.get("target"),score));
 	    }
 	}
@@ -146,41 +148,39 @@ public class Searchers {
 	Hit[] hits = allhits.toArray(new Hit[allhits.size()]); //to sort i need an array not a list (convert List<Hit> to Hit[])
 	Arrays.sort(hits, Comparator.comparing(h -> h.score));
 	Collections.reverse(Arrays.asList(hits)); //from higher to lower
-	return hits;
+	return Arrays.copyOfRange(hits, 0, Math.min(N_BEST,hits.length)); //histogram pruning
+    }
+
+    String format_hits_of_line(String line,Hit[] hits,boolean query,boolean match) {
+	List<String> out = new ArrayList<String>();
+	String sep = " ‖ ";
+	if (query)
+	    out.add(line);
+	int N = 0;
+	for (int i = 0; i < hits.length; ++i) {
+	    String res = hits[i].tm + ":" + hits[i].pos + ":" + String.format("%.6f",hits[i].score);
+	    if (match) {
+		res += sep + hits[i].src;
+		if (hits[i].tgt != null) 
+		    res += sep + hits[i].tgt;
+	    }
+	    out.add(res);
+	    N++;
+	}
+	return String.join("\t",out);
     }
     
     public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(dataPath);
-	String sep1 = " ⚆ ";
-	String sep2 = " ⚈ ";
 	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
         BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
         String line;
 	int nline = 0;
         while ((line = reader.readLine()) != null) {
-	    Hit[] hits = get_sorted_hits_for_line(line,N_BEST,fuzzymatch);
-	    List<String> out = new ArrayList<String>();
-	    if (query)
-		out.add(line);
-	    int N = 0;
-	    for (int i = 0; i < hits.length; ++i) {
-		if (N >= N_BEST) //histogram pruning
-		    break;
-		if (hits[i].score < mins) //threshold pruning
-		    break;
- 		if (noperfect && line.equals(hits[i].src)) //perfect match pruning
-		    continue;
-		String res = hits[i].tm + ":" + hits[i].pos + ":" + String.format("%.6f",hits[i].score);
-		if (match) {
-		    res += sep1 + hits[i].src;
-		    if (hits[i].tgt != null) 
-			res += sep2 + hits[i].tgt;
-		}
-		out.add(res);
-		N++;
-	    }
-	    System.out.println(String.join("\t", out));
+	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,mins,fuzzymatch,noperfect);
+	    String out = format_hits_of_line(line,hits,query,match);
+	    System.out.println(out);
 	    nline++;
 	}
 	long endTime = System.currentTimeMillis();

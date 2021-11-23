@@ -72,6 +72,8 @@ public class LuceneIndex {
 /***********************************************************************************/
 
 public class Indexer {
+    String sep = "‖";
+    String sepby = "⦀";
     private String indexDirectoryPath;
     
     private void progress(int n){
@@ -108,6 +110,8 @@ public class Indexer {
 		lines[i] = readerFiles[i].readLine();
 		if (lines[i] == null)
 		    end = true;
+		else
+		    lines[i].replaceAll(sep,sepby);
 	    }
 	    if (!end) {
 		writer.addDocument(buildDocument(lines,++nline));
