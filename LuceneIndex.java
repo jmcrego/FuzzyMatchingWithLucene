@@ -26,7 +26,7 @@ public class LuceneIndex {
     
     public static void main(String[] args) throws IOException {
 	String dir = "";
-	List<String> files = new ArrayList<String>();
+	String file = "";
 	int i = 0;
 	while (i<args.length) {
 	    if (args[i].equals("-i") && i<args.length-1) {
@@ -36,7 +36,7 @@ public class LuceneIndex {
 	    }
 	    else if (args[i].equals("-f") && i<args.length-1) {
 		i++;
-		files.add(args[i]);
+		file = args[i];
 		i++;
 	    }
 	    else {
@@ -45,26 +45,24 @@ public class LuceneIndex {
 	}
 	if (dir.equals(""))
 	    Exit("missing -i option");
-	if (files.size() == 0)
-	    Exit("missing -f option/s");
+	if (file.equals(""))
+	    Exit("missing -f option");
 	
-	for (String file : files) {
-	    String[] tm_source_targets = file.split(",");
-	    if (tm_source_targets.length >= 2) {
-		Indexer idx = new Indexer(dir);
-		idx.indexFile(dir,tm_source_targets);
-	    }
-	    else {
-		Exit("Bad -f option: use at least 2 fields");
-	    }
+	String[] source_targets = file.split(",");
+	if (source_targets.length >= 1) {
+	    Indexer idx = new Indexer(dir);
+	    idx.indexFile(dir,source_targets);
+	}
+	else {
+	    Exit("Bad -f option: use at least 2 fields");
 	}
     }
 
     private static void Exit(String e){
 	System.err.println("error: "+e);
-	System.err.println("usage: LuceneIndex -i DIR [-f TM,FILE0[,FILE1]*]+");
-	System.err.println("  -i             DIR : Create indexs in DIR");
-	System.err.println("  -f  TM,FILE[,FPAR] : Build an index in DIR/TM (removes previous if exists) using FILE for indexing and storing additional FPAR's parallel files");
+	System.err.println("usage: LuceneIndex -i DIR -f FILE[,FPAR]*");
+	System.err.println("  -i         DIR : Create indexs in DIR");
+	System.err.println("  -f FILE[,FPAR] : Build an index in DIR using FILE for indexing and storing additional FPAR's parallel files (removes previous if exists)");
 	System.exit(1);
     }
 }
@@ -87,44 +85,42 @@ public class Indexer {
 	indexDirectoryPath = dir;
     }
 
-    public void indexFile(String indexDirectoryPath, String[] desc) throws IOException {
-	//System.err.println("LuceneIndex: Building index "+indexDirectoryPath+"/"+desc[0]);
+    public void indexFile(String indexDirectoryPath, String[] src_tgts) throws IOException {
 	IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
 	conf.setOpenMode(OpenMode.CREATE);
-	File d=new File(indexDirectoryPath+"/"+desc[0]);
+	File d=new File(indexDirectoryPath);
 	Directory indexDirectory = FSDirectory.open(d.toPath());
 	IndexWriter writer = new IndexWriter(indexDirectory, conf);
 
-	System.err.println("LuceneIndex: Reading "+desc[0]);
 	long startTime = System.currentTimeMillis();
-	BufferedReader[] readerFiles = new BufferedReader[desc.length-1];
-	for (int i=0 ; i<desc.length-1; i++) {
-	    System.err.print("LuceneIndex: Opening "+desc[i+1]);
-	    File indexFile = new File(desc[i+1]);
+	BufferedReader[] readerFiles = new BufferedReader[src_tgts.length];
+	for (int i=0 ; i<src_tgts.length; i++) {
+	    System.err.println("LuceneIndex: Opening "+src_tgts[i]);
+	    File indexFile = new File(src_tgts[i]);
 	    readerFiles[i] = Files.newBufferedReader(indexFile.toPath());
 	}
 	int nline = 0;
-	String[] lines = new String[desc.length-1];
+	String[] lines = new String[readerFiles.length];
 	boolean end = false;
 	while (!end) {
-	    for (int i=0 ; i<desc.length-1 && !end; i++) {
+	    for (int i=0 ; i<readerFiles.length && !end; i++) {
 		lines[i] = readerFiles[i].readLine();
 		if (lines[i] == null)
 		    end = true;
 	    }
 	    if (!end) {
-		writer.addDocument(buildDocument(desc[0],lines,++nline));
+		writer.addDocument(buildDocument(lines,++nline));
 		progress(nline);
 	    }
 	}
 	writer.commit();
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
-	System.err.println(" found "+nline+" sentences in "+String.format("%.2f",(float)msec/100)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
+	System.err.println("\nfound "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec [index contains "+writer.getDocStats().maxDoc+" sentences]");
 	writer.close();
     }
 
-    private Document buildDocument(String desc, String[] lines, int nline) {
+    private Document buildDocument(String[] lines, int nline) {
 	Document doc = new Document();
 	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, indexed, stored for retrieval
 	doc.add(source);
