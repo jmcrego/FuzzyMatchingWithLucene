@@ -111,24 +111,9 @@ public class LuceneQuery {
 /*** Searcher **********************************************************************/
 /***********************************************************************************/
 
-public class Hit {
-    String tm;
-    String pos;
-    String src;
-    String tgt;
-    float score;
-
-    public Hit(String mytm, String mypos, String mysrc, String mytgt, float myscore) {
-	tm = mytm;
-	pos = mypos;
-	src = mysrc;
-	tgt = mytgt;
-	score = myscore;
-    }
-}
-
 public class Searchers {
     Map<String, IndexSearcher> searchers = new HashMap<String, IndexSearcher>();
+    StandardAnalyzer analyzer = new StandardAnalyzer();
     
     public Searchers(List<String> dirs) throws IOException {
 	for (String dir : dirs) {
@@ -141,56 +126,61 @@ public class Searchers {
 	}
     }
 
+    public Hit[] get_sorted_hits_for_line(String line, int N_BEST, boolean fuzzymatch) throws IOException {
+	List<Hit> allhits = new ArrayList<Hit>();
+	for (var searcher : searchers.entrySet()) { //collect hits for all available searchers (TMs)
+	    //String tm = entry.getKey();
+	    //IndexSearcher searcher = entry.getValue();                                                                                                                                                                                 
+	    BooleanQuery booleanQuery = buildBooleanQuery(line);
+	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
+	    searcher.getValue().search(booleanQuery, collector);
+	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
+	    for (int i = 0; i < hits.length; ++i) {
+		int docId = hits[i].doc;
+		Document d = searcher.getValue().doc(docId);
+		float score = fuzzymatch ? rescoreByFM(d.get("source"),line) : hits[i].score;
+		allhits.add(new Hit(searcher.getKey(),d.get("position"),d.get("source"),d.get("target"),score));
+	    }
+	}
+	//sorting allhits by score
+	Hit[] hits = allhits.toArray(new Hit[allhits.size()]); //to sort i need an array not a list (convert List<Hit> to Hit[])
+	Arrays.sort(hits, Comparator.comparing(h -> h.score));
+	Collections.reverse(Arrays.asList(hits)); //from higher to lower
+	return hits;
+    }
+    
     public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(dataPath);
+	String sep1 = " ⚆ ";
+	String sep2 = " ⚈ ";
 	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
         BufferedReader reader = Files.newBufferedReader(indexFile.toPath());
         String line;
 	int nline = 0;
         while ((line = reader.readLine()) != null) {
-	    List<Hit> allhits = new ArrayList<Hit>();
-	    for (var entry : searchers.entrySet()) {
-		String tm = entry.getKey();
-		IndexSearcher searcher = entry.getValue();
-		BooleanQuery booleanQuery = buildBooleanQuery(line,tm);
-		TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
-		searcher.search(booleanQuery, collector);
-		ScoreDoc[] hits = collector.topDocs().scoreDocs;
-		for (int i = 0; i < hits.length; ++i) {
-		    int docId = hits[i].doc;
-		    Document d = searcher.doc(docId);
-		    float score = fuzzymatch ? rescoreByFM(d.get("source"),line) : hits[i].score;
-		    allhits.add(new Hit(tm,d.get("position"),d.get("source"),d.get("target"),score));
-		}
-	    }
-	    //sorting allhits by score
-	    Hit[] hits = allhits.toArray(new Hit[allhits.size()]); //to sort i need an array not a list
-	    Arrays.sort(hits, Comparator.comparing(h -> h.score));
-	    Collections.reverse(Arrays.asList(hits));	    
-	    String out = "";
+	    Hit[] hits = get_sorted_hits_for_line(line,N_BEST,fuzzymatch);
+	    List<String> out = new ArrayList<String>();
 	    if (query)
-		out = line;
+		out.add(line);
 	    int N = 0;
 	    for (int i = 0; i < hits.length; ++i) {
 		if (N >= N_BEST) //histogram pruning
 		    break;
 		if (hits[i].score < mins) //threshold pruning
 		    break;
- 		if (noperfect && line.equals(hits[i].src)) { //perfect match pruning
+ 		if (noperfect && line.equals(hits[i].src)) //perfect match pruning
 		    continue;
-		}
-		N++;
-		if (!out.equals(""))
-		    out += "\t";
-		out += hits[i].tm + ":" + hits[i].pos + ":" + String.format("%.6f",hits[i].score);
+		String res = hits[i].tm + ":" + hits[i].pos + ":" + String.format("%.6f",hits[i].score);
 		if (match) {
-		    out += "\t" + hits[i].src;
+		    res += sep1 + hits[i].src;
 		    if (hits[i].tgt != null) 
-			out += "\t" + hits[i].tgt;
+			res += sep2 + hits[i].tgt;
 		}
+		out.add(res);
+		N++;
 	    }
-	    System.out.println(out);
+	    System.out.println(String.join("\t", out));
 	    nline++;
 	}
 	long endTime = System.currentTimeMillis();
@@ -205,28 +195,28 @@ public class Searchers {
 	return fm;
     }    
 
-    public BooleanQuery buildBooleanQuery(String sentence, String tm) throws IOException {
+    public BooleanQuery buildBooleanQuery(String sentence) throws IOException {
 	/* 
 	   This functions returns a boolean query for the input sentence.
 	   First applies the StandardAnalyzer over sentence, then each of the resulting tokens are added as terms of the query
-	   Minimum number of term matches is 1
 	 */
-	int minmatch = 1;
 	BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
-	StandardAnalyzer analyzer = new StandardAnalyzer();
 	TokenStream ts= analyzer.tokenStream("source", sentence); //applies analyzer and split results into tokens
 	OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
 	CharTermAttribute charTermAttribute = ts.addAttribute(CharTermAttribute.class);
+	int sent_len = 0;
 	try {
 	    ts.reset();
 	    while (ts.incrementToken()) {
 		String term = charTermAttribute.toString();
-		queryBuilder.add(new TermQuery(new Term("source", term)), BooleanClause.Occur.SHOULD);  
+		queryBuilder.add(new TermQuery(new Term("source", term)), BooleanClause.Occur.SHOULD);
+		sent_len++;
 	    }
 	    ts.end();
 	} finally {
 	    ts.close();
 	}
+	int minmatch = Math.min(1,sent_len);
 	queryBuilder.setMinimumNumberShouldMatch(minmatch);
 	BooleanQuery query = queryBuilder.build();
 	return query;
@@ -270,6 +260,22 @@ public class Searchers {
         }
 	//System.err.println("ed: "+solution[s1.length][s2.length]);
         return solution[s1.length][s2.length];
+    }
+}
+
+public class Hit {
+    String tm;
+    String pos;
+    String src;
+    String tgt;
+    float score;
+
+    public Hit(String mytm, String mypos, String mysrc, String mytgt, float myscore) {
+	tm = mytm;
+	pos = mypos;
+	src = mysrc;
+	tgt = mytgt;
+	score = myscore;
     }
 }
 
