@@ -35,6 +35,7 @@ public class LuceneQuery {
 	List<String> dirs = new ArrayList<String>();
         String file = "";
 	int n_best = 1;
+	int n_query = 10;
 	float mins = 0.0f;
 	boolean fuzzymatch = false;
 	boolean query = false;
@@ -55,6 +56,11 @@ public class LuceneQuery {
             else if (args[i].equals("-n") && i<args.length-1) {
                 i++;
                 n_best = Integer.parseInt(args[i]);
+                i++;
+            }
+            else if (args[i].equals("-nq") && i<args.length-1) {
+                i++;
+                n_query = Integer.parseInt(args[i]);
                 i++;
             }
             else if (args[i].equals("-mins") && i<args.length-1) {
@@ -87,9 +93,13 @@ public class LuceneQuery {
         if (file.equals(""))
             Exit("missing -f option");
 
-	System.err.println("LuceneQuery: Options -n "+n_best+" -mins "+mins+" "+(fuzzymatch ? " -fuzzymatch" : "")+(noperfect ? " -noperfect" : "")+(query ? " -query" : "")+(match ? " -match" : ""));
+	if (n_query*dirs.size() < n_best){
+	    System.err.println("LuceneQuery: WARNING: cannot return more than (nq="+n_query+" x nTM="+dirs.size()+") = "+(n_query*dirs.size())+" hits");
+	}
+	
+	System.err.println("LuceneQuery: Options -n "+n_best+" -nq "+n_query+" -mins "+mins+" "+(fuzzymatch ? " -fuzzymatch" : "")+(noperfect ? " -noperfect" : "")+(query ? " -query" : "")+(match ? " -match" : ""));
 	Searchers idxs = new Searchers(dirs);
-	idxs.searchFile(n_best,fuzzymatch,mins,noperfect,query,match,file);
+	idxs.searchFile(n_best,n_query,fuzzymatch,mins,noperfect,query,match,file);
     }
 
     private static void Exit(String e){
@@ -98,6 +108,7 @@ public class LuceneQuery {
         System.err.println("  -i       DIR : Read TM index in DIR");
         System.err.println("  -f      FILE : Find sentences of TM indexed in DIR similar to sentences in FILE");
         System.err.println("  -n       INT : Returns up to INT-best similar sentences (default 1)");
+        System.err.println("  -nq      INT : Performs searches returning INT hits (default 10)");
         System.err.println("  -query       : Output string corresponding to queried sentences");
         System.err.println("  -match       : Output string corresponding to matched sentences in index");
         System.err.println("  -fuzzymatch  : Sort n-best list using fuzzy match similarity score (use with -n)");
@@ -127,22 +138,23 @@ public class Searchers {
 	}
     }
 
-    public Hit[] get_sorted_hits_of_line(String line, int N_BEST, float mins, boolean fuzzymatch, boolean noperfect) throws IOException {
+    public Hit[] get_sorted_hits_of_line(String line, int N_BEST, int N_QUERY, float mins, boolean fuzzymatch, boolean noperfect) throws IOException {
 	List<Hit> allhits = new ArrayList<Hit>();
 	for (var searcher : searchers.entrySet()) { //collect hits for all available searchers (TMs)
 	    BooleanQuery booleanQuery = buildBooleanQuery(line);
-	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_BEST, N_BEST);
+	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_QUERY, N_QUERY);
 	    searcher.getValue().search(booleanQuery, collector);
 	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
 	    for (int i = 0; i < hits.length; ++i) {
 		int docId = hits[i].doc;
 		Document d = searcher.getValue().doc(docId);
-		if (noperfect && line.equals(d.get("source"))) //perfect match pruning
+		String source = d.get("source");
+		if (noperfect && line.equals(source)) //perfect match pruning
 		    continue;
-		float score = fuzzymatch ? rescoreByFM(d.get("source"),line) : hits[i].score;
+		float score = fuzzymatch ? rescoreByFM(source,line) : hits[i].score;
 		if (score < mins) //threshold pruning
 		    continue;
-		allhits.add(new Hit(searcher.getKey(),d.get("position"),d.get("source"),d.get("target"),score));
+		allhits.add(new Hit(searcher.getKey(),d.get("position"),source,d.get("target"),score));
 	    }
 	}
 	//sorting allhits by score
@@ -170,7 +182,7 @@ public class Searchers {
 	return String.join("\t",out);
     }
     
-    public void searchFile(int N_BEST, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
+    public void searchFile(int N_BEST,int N_QUERY, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(dataPath);
 	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
@@ -178,7 +190,7 @@ public class Searchers {
         String line;
 	int nline = 0;
         while ((line = reader.readLine()) != null) {
-	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,mins,fuzzymatch,noperfect);
+	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,N_QUERY,mins,fuzzymatch,noperfect);
 	    String out = format_hits_of_line(line,hits,query,match);
 	    System.out.println(out);
 	    nline++;
