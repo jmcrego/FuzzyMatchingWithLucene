@@ -114,6 +114,7 @@ public class LuceneQuery {
 public class Searchers {
     Map<String, IndexSearcher> searchers = new HashMap<String, IndexSearcher>();
     StandardAnalyzer analyzer = new StandardAnalyzer();
+    String sep = " ‖ ";
     
     public Searchers(List<String> dirs) throws IOException {
 	for (String dir : dirs) {
@@ -153,7 +154,6 @@ public class Searchers {
 
     String format_hits_of_line(String line,Hit[] hits,boolean query,boolean match) {
 	List<String> out = new ArrayList<String>();
-	String sep = " ‖ ";
 	if (query)
 	    out.add(line);
 	int N = 0;
