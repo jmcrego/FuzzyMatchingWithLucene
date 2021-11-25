@@ -17,6 +17,10 @@ import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.*;
 
 /***********************************************************************************/
 /*** MAIN **************************************************************************/
@@ -125,7 +129,7 @@ public class Indexer {
 	writer.close();
     }
 
-    private Document buildDocument(String[] lines, int nline) {
+    private Document buildDocument(String[] lines, int nline) throws IOException {
 	Document doc = new Document();
 	TextField source = new TextField("source", lines[0], Field.Store.YES);  //analyzed using StandardAnalyzer, indexed, stored for retrieval
 	doc.add(source);
@@ -141,4 +145,23 @@ public class Indexer {
 	}
 	return doc;
     }
+
+    public int getLength(String sentence) throws IOException {
+        StandardAnalyzer analyzer = new StandardAnalyzer();
+        TokenStream ts = analyzer.tokenStream("source", sentence); //applies analyzer and split results into tokens
+        OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+        CharTermAttribute charTermAttribute = ts.addAttribute(CharTermAttribute.class);
+        int len = 0;
+        try {
+            ts.reset();
+            while (ts.incrementToken()) {
+		len++;
+            }
+            ts.end();
+        } finally {
+            ts.close();
+        }
+        return len;
+    }
+
 }
