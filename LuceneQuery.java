@@ -126,6 +126,10 @@ public class Searchers {
     Map<String, IndexSearcher> searchers = new HashMap<String, IndexSearcher>();
     StandardAnalyzer analyzer = new StandardAnalyzer();
     String sep = " ‖ ";
+    int nHitsFound;
+    int nHitsKept;
+    int nSentsWithHit;
+    int nTok;
     
     public Searchers(List<String> dirs) throws IOException {
 	for (String dir : dirs) {
@@ -139,6 +143,10 @@ public class Searchers {
     }
 
     public void searchFile(int N_BEST,int N_QUERY, boolean fuzzymatch, float mins, boolean noperfect, boolean query,boolean match,String dataPath) throws IOException, ParseException {
+	nTok = 0;
+	nHitsFound = 0;
+	nHitsKept = 0;
+	nSentsWithHit = 0;
 	long startTime = System.currentTimeMillis();
         File indexFile = new File(dataPath);
 	System.err.println("LuceneQuery: Searching file "+indexFile.getAbsolutePath());
@@ -147,13 +155,17 @@ public class Searchers {
 	int nline = 0;
         while ((line = reader.readLine()) != null) {
 	    Hit[] hits = get_sorted_hits_of_line(line,N_BEST,N_QUERY,mins,fuzzymatch,noperfect);
+	    nHitsKept += hits.length;
 	    String out = format_hits_of_line(line,hits,query,match);
 	    System.out.println(out);
 	    nline++;
 	}
 	long endTime = System.currentTimeMillis();
 	long msec = endTime-startTime;
-	System.err.println("LuceneQuery: Searched file with "+nline+" sentences in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
+	System.err.print("LuceneQuery: "+nline+"/"+nTok+" sents/toks in "+String.format("%.2f",(float)msec/1000)+" sec ("+String.format("%.2f",(float)1000*nline/msec)+" sents/sec)");
+	System.err.print(" #hitsFound="+nHitsFound+" ("+String.format("%.2f",(float)nHitsFound/nline)+" hits/sent)");
+	System.err.print(" #hitsKept="+nHitsKept);
+	System.err.print(" #sentsWithHit="+nSentsWithHit+" ("+String.format("%.2f",(float)100*nSentsWithHit/nline)+"%)");
     }
 
     public Hit[] get_sorted_hits_of_line(String line, int N_BEST, int N_QUERY, float mins, boolean fuzzymatch, boolean noperfect) throws IOException {
@@ -163,6 +175,7 @@ public class Searchers {
 	    TopScoreDocCollector collector = TopScoreDocCollector.create(N_QUERY, N_QUERY);
 	    searcher.getValue().search(booleanQuery, collector);
 	    ScoreDoc[] hits = collector.topDocs().scoreDocs;
+	    nHitsFound += hits.length;
 	    for (int i = 0; i < hits.length; ++i) {
 		int docId = hits[i].doc;
 		Document d = searcher.getValue().doc(docId);
@@ -186,7 +199,8 @@ public class Searchers {
 	List<String> out = new ArrayList<String>();
 	if (query)
 	    out.add(line);
-	int N = 0;
+	if (hits.length > 0)
+	    nSentsWithHit++;
 	for (int i = 0; i < hits.length; ++i) {
 	    String res = hits[i].tm + ":" + hits[i].pos + ":" + String.format("%.6f",hits[i].score);
 	    if (match) {
@@ -195,7 +209,6 @@ public class Searchers {
 		    res += sep + hits[i].tgt;
 	    }
 	    out.add(res);
-	    N++;
 	}
 	return String.join("\t",out);
     }
@@ -228,6 +241,7 @@ public class Searchers {
 	} finally {
 	    ts.close();
 	}
+	nTok += sent_len;
 	int minmatch = Math.min(1,sent_len);
 	queryBuilder.setMinimumNumberShouldMatch(minmatch);
 	BooleanQuery query = queryBuilder.build();
