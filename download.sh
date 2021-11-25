@@ -45,8 +45,15 @@ unpc(){
     rm -f $raw/{README,LICENSE,UNPC.en-fr.xml,en-fr.txt.zip}
 }
 
+book(){
+    wget -P $raw https://object.pouta.csc.fi/OPUS-EUbookshop/v2/moses/en-fr.txt.zip
+    unzip -d $raw $raw/en-fr.txt.zip
+    rm -f $raw/{README,EUbookshop.en-fr.ids,en-fr.txt.zip}
+}
+
 #news
 #emea
 #ecb
 #epps
 #unpc
+#book
